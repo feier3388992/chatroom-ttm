@@ -1,4 +1,3 @@
-下面是可直接粘贴到 GitHub README 编辑页的版本。二维码使用你指定仓库里的原图链接；MIT 许可证文件目前尚未添加，所以 README 发布后还需要在仓库根目录新建 `LICENSE` 文件，并放入标准 MIT 许可证全文，才能让许可证链接有效。
 
 ```markdown
 # QuickTalk V3 · Python 全栈即时通讯学习项目
