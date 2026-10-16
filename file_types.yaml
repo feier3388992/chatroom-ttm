@@ -1,0 +1,104 @@
+# talktome 文件类型配置
+# 增加格式只需在此添加扩展名，后端+前端自动生效
+#
+# 分类说明:
+#   image    - 图片，前端 <img> 预览
+#   video    - 视频，前端 <video> 预览（不支持的格式自动转码mp4）
+#   audio    - 音频，前端 <audio> 预览（不支持的格式自动转码mp3）
+#   document - 文档，服务端解析为 HTML
+#   code     - 代码，前端 <pre> 显示
+#   text     - 纯文本
+#   special  - 特殊格式(如 pdf 用 iframe)
+#   archive  - 压缩包，仅下载
+
+image:
+  - png
+  - jpg
+  - jpeg
+  - gif
+  - bmp
+  - webp
+  - svg
+  - tiff
+  - ico
+
+video:
+  - mp4
+  - webm
+  - ogg
+  - avi
+  - mov
+  - mkv
+  - flv
+  - wmv
+  - 3gp
+  - rmvb
+  - rm
+  - ts
+  - m4v
+  - f4v
+  - vob
+  - mpg
+  - mpeg
+  - m2ts
+
+audio:
+  - mp3
+  - wav
+  - ogg
+  - flac
+  - aac
+  - wma
+  - opus
+  - ape
+  - aiff
+  - ac3
+  - ra
+  - m4a
+
+document:
+  - docx
+  - doc
+  - xlsx
+  - xls
+  - pptx
+  - ppt
+  - md
+
+code:
+  - py
+  - js
+  - ts
+  - css
+  - html
+  - json
+  - xml
+  - java
+  - go
+  - rs
+  - c
+  - cpp
+  - h
+  - hpp
+  - sql
+  - sh
+  - bat
+  - yaml
+  - yml
+  - toml
+  - ini
+  - cfg
+  - conf
+
+text:
+  - txt
+
+special:
+  - pdf
+
+archive:
+  - zip
+  - rar
+  - 7z
+  - tar
+  - gz

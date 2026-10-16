@@ -1,0 +1,20 @@
+quicktalk:
+  server: "127.0.0.1:18675"
+  username: "t"
+  password: "change-me"
+  use_https: false
+
+deepseek:
+  providers:
+    - name: "DeepSeek"
+      api_key: "sk-your-deepseek-api-key"
+      model: "deepseek-chat"
+      base_url: "https://api.deepseek.com"
+    - name: "SiliconFlow"
+      api_key: "sk-your-siliconflow-api-key"
+      model: "deepseek-ai/DeepSeek-V3"
+      base_url: "https://api.siliconflow.cn/v1"
+
+agent:
+  name: "t"
+  personality: "你是一个友好、聪明的聊天机器人。用中文回复，语气亲切自然，像朋友一样聊天。简洁不啰嗦。"

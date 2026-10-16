@@ -1,0 +1,43 @@
+# QuickTalk 聊天室平台 - 依赖清单
+# 生成日期: 2026-07-19
+# Python 版本: 3.11
+#
+# 用法:
+#   pip install -r requirements.txt
+#
+# ── 核心服务（必须安装） ──────────────────────
+fastapi>=0.139
+uvicorn[standard]>=0.51
+pydantic>=2.13
+requests>=2.33
+websocket-client>=1.9
+websockets>=15.0
+PyYAML>=6.0
+python-multipart>=0.0.32
+PyJWT>=2.13
+python-dotenv>=1.2
+httpx>=0.28          # hermes_bridge 需要
+
+# ── 技能模块（根据需求安装） ──────────────────
+# 以下模块被各个技能使用，缺了对应技能无法加载
+pandas>=2.0           # stock_predictor (股票预测)
+beautifulsoup4>=4.12  # web_scraper (网页抓取)
+lxml>=5.0             # web_scraper (HTML解析)
+openpyxl>=3.1         # 文件操作 (Excel读写)
+python-pptx>=1.0      # 文件操作 (PPT读写)
+python-docx>=1.1      # 文件操作 (Word读写)
+xlsxwriter>=3.2       # 文件操作 (Excel导出)
+jinja2>=3.1           # 模板渲染
+python-dateutil>=2.9  # 日期处理
+tabulate>=0.10        # 表格格式化输出
+pillow>=11.0          # 图片处理
+
+# ── 可选模块（特定功能需要） ──────────────────
+# akshare             # 股票数据源（需要额外安装）
+# aiohttp             # 异步HTTP（部分bridge使用）
+# edge-tts            # 语音合成
+# cryptography        # 加密功能
+# spire-doc spire-xls # 文档处理（商业库）
+# paramiko            # SSH远程操作
+# opencv-python       # OA客户端视频处理
+# pyaudio             # OA客户端音频录制

@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>TTM</title>
+<link rel="stylesheet" href="/static/emoji-font.css?v=2">
+<link rel="stylesheet" href="/static/style.css?v=57">
+<link rel="stylesheet" href="/static/desktop.css?v=11">
+<link rel="stylesheet" href="/static/wechat-theme.css?v=20">
+<script>
+(function(){
+    var s = localStorage.getItem('theme');
+    // 只有用户手动切过dark才用深色，其余全部默认light护眼天蓝
+    if(s === 'dark'){
+        document.documentElement.setAttribute('data-theme','dark');
+    }else{
+        // 无存储、无论系统深浅，强制使用浅色护眼天蓝色
+        document.documentElement.removeAttribute('data-theme');
+    }
+})();
+</script>
+</head>
+<body class="desktop-page">
+<div class="desktop-root" id="desktopRoot">
+    <div class="wallpaper"></div>
+
+    <!-- ===== 桌面图标层 ===== -->
+    <div class="desktop-icons" id="desktopIcons"></div>
+    <div class="desktop-sel-box" id="desktopSelBox" style="display:none"></div>
+
+    <!-- ===== 文件夹 / 应用窗口挂载点 ===== -->
+    <div id="folderWindows"></div>
+
+    <!-- ===== 聊天窗口（永远置顶） ===== -->
+    <div class="qt-window wechat-window" id="wechatWindow">
+        <div class="qt-titlebar" id="chatTitlebar">
+            <div class="win-dots"><span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span></div>
+            <div class="win-title" id="winTitle">TTM</div>
+            <div class="win-controls">
+                <button class="win-btn" id="winMinBtn" title="最小化">—</button>
+                <button class="win-btn" id="winMaxBtn" title="最大化/还原">▢</button>
+                <button class="win-btn win-close" id="winCloseBtn" title="关闭">✕</button>
+            </div>
+        </div>
+        <div class="qt-body">
+        <div class="chat-layout">
+            <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+            <div class="chat-sidebar" id="chatSidebar">
+                <div class="sidebar-body">
+                    <div class="sidebar-tabs">
+                        <button class="sidebar-tab active" id="tabFriends" onclick="switchSidebarTab('friends')">好友<span class="tab-badge" id="tabBadgeFriends" style="display:none;">0</span></button>
+                        <button class="sidebar-tab" id="tabRooms" onclick="switchSidebarTab('rooms')">群聊<span class="tab-badge" id="tabBadgeRooms" style="display:none;">0</span></button>
+                    </div>
+                    <div class="sidebar-panel" id="panelFriends">
+                        <div class="room-section" id="privateChatSection">
+                            <div class="room-section-header">
+                                <span>好友</span>
+                                <button class="room-add-btn" onclick="showAddFriendModal()" title="添加好友">＋</button>
+                            </div>
+                            <div id="privateChatList"></div>
+                        </div>
+                    </div>
+                    <div class="sidebar-panel" id="panelRooms" style="display:none;">
+                        <div class="room-section">
+                            <div class="room-section-header">
+                                <span>群聊</span>
+                                <button class="room-add-btn" onclick="showCreateRoom()" title="创建房间">＋</button>
+                            </div>
+                            <div id="roomList"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="chat-sidebar-footer">
+                    <span id="userName"></span>
+                    <div class="sidebar-actions">
+                        <span id="adminLink" style="display:none;"><a href="/admin" class="btn btn-default btn-sm" style="text-decoration:none;">管理</a></span>
+                        <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="切换主题" alt="深色"></button>
+                        <button class="logout-btn" onclick="doLogout()">退出</button>
+                    </div>
+                </div>
+            </div>
+            <div class="chat-splitter" id="chatSplitter" title="拖动调整宽度（双击复位）"></div>
+            <div class="right-sidebar" id="rightSidebar">
+                <div class="right-sidebar-header">
+                    <span>搜索</span>
+                    <button class="right-sidebar-close" onclick="toggleRightSidebar()">✕</button>
+                </div>
+                <div class="right-sidebar-body">
+                    <div class="search-input-row">
+                        <input id="searchInput" placeholder="搜索关键词..." onkeydown="if(event.key==='Enter')doSearch()">
+                    </div>
+                    <div class="search-type-row">
+                        <label><input type="radio" name="searchType" value="all" checked> 全部</label>
+                        <label><input type="radio" name="searchType" value="text"> 文字</label>
+                        <label><input type="radio" name="searchType" value="file"> 文件</label>
+                    </div>
+                    <div class="search-sender-row">
+                        <input id="searchSender" placeholder="发送人（可选）" onkeydown="if(event.key==='Enter')doSearch()">
+                    </div>
+                    <div class="search-date-row">
+                        <input type="date" id="searchDateFrom" placeholder="开始日期">
+                        <span>~</span>
+                        <input type="date" id="searchDateTo" placeholder="结束日期">
+                    </div>
+                    <button class="search-btn" onclick="doSearch()">搜索</button>
+                    <div class="search-total" id="searchTotal"></div>
+                    <div class="search-results" id="searchResults"></div>
+                </div>
+            </div>
+            <div class="chat-main" id="chatMain">
+                <div class="chat-header">
+                    <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+                    <h2 id="currentRoomTitle"># 大厅</h2>
+                    <div class="chat-header-right">
+                        <span class="typing-indicator" id="typingIndicator"></span>
+                        <span class="unread-badge" id="unreadBadge">0</span>
+                        <div class="room-actions">
+                            <button class="btn btn-default btn-sm" id="leaveRoomBtn" onclick="leaveRoom()" title="离开房间" style="display:none;">⇥</button>
+                            <button id="inviteBtn" class="btn btn-default btn-sm" onclick="showInviteModal()" title="邀请用户" style="display:none;">邀请</button>
+                            <button id="deleteRoomBtn" class="btn btn-danger btn-sm" onclick="deleteCurrentRoom()" title="删除房间" style="display:none;">删除</button>
+                            <button id="clearMsgsBtn" class="btn btn-danger btn-sm" onclick="clearMessages()" title="清除所有消息" style="display:none;">✕</button>
+                            <button class="btn btn-default btn-sm" onclick="toggleRightSidebar()" title="搜索">搜索</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="chatMessages">
+                </div>
+                <div class="drop-overlay" id="dropOverlay">
+                    <div class="drop-icon">文件</div>
+                    <div class="drop-text">拖拽文件到此处上传</div>
+                    <div class="drop-hint">支持图片、文档、视频等格式</div>
+                </div>
+                <div class="chat-input-area" id="chatInputArea">
+                    <div class="quote-bar" id="quoteBar" style="display:none">
+                        <span class="quote-bar-text" id="quoteBarText"></span>
+                        <button class="quote-bar-close" onclick="clearQuote()">✕</button>
+                    </div>
+                    <div class="palette-drawer msgstyle" id="paletteDrawer">
+                        <div class="ms-row">
+                            <span class="ms-label">背景色</span>
+                            <div class="ms-swatches" id="msBgGrid"></div>
+                        </div>
+                        <div class="ms-row">
+                            <span class="ms-label">字号</span>
+                            <div class="ms-seg" id="msSizeSeg">
+                                <button type="button" data-fs="s">小</button>
+                                <button type="button" data-fs="">标准</button>
+                                <button type="button" data-fs="l">大</button>
+                                <button type="button" data-fs="xl">超大</button>
+                            </div>
+                        </div>
+                        <div class="ms-row">
+                            <span class="ms-label">文字色</span>
+                            <div class="ms-swatches" id="msFgGrid"></div>
+                        </div>
+                        <div class="ms-row">
+                            <span class="ms-label">字形</span>
+                            <div class="ms-seg" id="msFontSeg">
+                                <button type="button" data-fk="b" title="加粗"><b>B</b></button>
+                                <button type="button" data-fk="i" title="斜体"><i>I</i></button>
+                                <button type="button" data-fk="u" title="下划线"><u>U</u></button>
+                            </div>
+                        </div>
+                        <div class="ms-row">
+                            <span class="ms-label">对齐</span>
+                            <div class="ms-seg" id="msAlignSeg">
+                                <button type="button" data-al="l">左</button>
+                                <button type="button" data-al="c">中</button>
+                                <button type="button" data-al="r">右</button>
+                            </div>
+                        </div>
+                        <div class="ms-foot">
+                            <span class="ms-tip" id="msTip">未设置，跟随默认样式</span>
+                            <span class="palette-clear" onclick="resetPendingStyle()">重置</span>
+                        </div>
+                    </div>
+                    <div class="at-popup" id="atPopup"></div>
+                    <div class="emoji-panel" id="emojiPanel"></div>
+                    <div class="chat-input-row">
+                        <div class="chat-input-wrap" id="chatInputWrap">
+                            <textarea id="msgInput" placeholder="输入消息..." rows="1"></textarea>
+                        </div>
+                        <div class="input-side-actions">
+                            <button class="side-btn" id="emojiBtn" onclick="toggleEmoji()" title="表情" alt="表情"></button>
+                            <button class="side-btn" id="plusBtn" onclick="toggleAppDrawer()" title="更多">＋</button>
+                        </div>
+                    </div>
+                    <div class="app-drawer" id="appDrawer">
+                        <button class="app-drawer-btn" onclick="document.getElementById('fileInput').click()" title="上传文件"><span class="adb-icon">文</span><span class="adb-label">文件</span></button>
+                        <button class="app-drawer-btn" id="atBtn" onclick="toggleAtPopup()" title="@提及用户"><span class="adb-icon">＠</span><span class="adb-label">提及</span></button>
+                        <button class="app-drawer-btn" id="paletteBtn" onclick="togglePalette()" title="消息样式（背景色/字号/文字色/字形/对齐）"><span class="adb-icon">Aa</span><span class="adb-label">样式</span></button>
+                        <button class="app-drawer-btn" id="scrollBottomBtn" onclick="scrollToBottom()" title="滚动到底部"><span class="adb-icon">↓</span><span class="adb-label">到底部</span></button>
+                        <button class="app-drawer-btn" id="inputHeightBtn" onclick="cycleInputHeight()" title="调整输入框高度（每次 +50px）"><span class="adb-icon">↕</span><span class="adb-label">高度</span></button>
+                        <button class="app-drawer-btn send-drawer-btn" id="sendBtn" onclick="sendMessage()" title="发送"><span class="adb-icon">→</span><span class="adb-label">发送</span></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div>
+    </div>
+
+    <!-- ===== 任务栏 ===== -->
+    <div class="desktop-taskbar">
+        <button class="task-btn" id="taskChatBtn">TTM</button>
+        <button class="task-btn" id="taskFilesBtn">分类</button>
+        <button class="task-btn app-btn" id="taskAppmusic" title="音乐播放器">音乐</button>
+        <button class="task-btn app-btn" id="taskAppvideo" title="视频播放器">视频</button>
+        <button class="task-btn app-btn" id="taskAppimage" title="图片查看器">图片</button>
+        <button class="task-btn app-btn" id="taskApppdf" title="PDF 阅读器">PDF</button>
+        <button class="task-btn app-btn" id="taskAppzip" title="压缩软件">压缩</button>
+        <div class="task-windows" id="taskWindows"></div>
+        <div class="task-spacer"></div>
+        <span class="task-clock" id="taskClock"></span>
+    </div>
+</div>
+
+<!-- ===== 右键菜单 ===== -->
+<div class="context-menu" id="contextMenu"></div>
+
+<!-- ===== 文本查看/编辑器（桌面） ===== -->
+<div class="viewer-overlay" id="textViewer">
+    <div class="viewer-toolbar">
+        <span id="textViewerName"></span>
+        <span class="viewer-tools">
+            <button class="btn btn-default btn-sm" id="textPreviewBtn" onclick="toggleTextPreview()">预览</button>
+            <button class="btn btn-primary btn-sm" id="textSaveBtn" onclick="saveTextFile()">保存</button>
+            <a id="textViewerDl" class="btn btn-default btn-sm" download>下载</a>
+            <button class="btn btn-default btn-sm" onclick="closeViewer('textViewer')">关闭 ✕</button>
+        </span>
+    </div>
+    <div class="viewer-stage text-stage">
+        <textarea id="textEditor" spellcheck="false"></textarea>
+        <div id="textPreview" class="text-preview" style="display:none"></div>
+    </div>
+</div>
+
+<input type="file" id="fileInput" style="display:none" onchange="handleFileSelect(event)" accept=".png,.jpg,.jpeg,.gif,.bmp,.webp,.svg,.mp4,.mp3,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.7z,.html">
+<div class="preview-overlay" id="previewOverlay" onclick="this.classList.remove('open')">
+    <img src="" alt="preview">
+</div>
+
+    <div class="modal-overlay" id="joinPasswordModal">
+        <div class="modal-content" data-resizable="se" data-rz-min="150">
+            <h3>加入房间</h3>
+            <p id="joinRoomTitle" style="margin-bottom:12px;color:#666;"></p>
+            <div class="form-group">
+                <label>请输入房间密码</label>
+                <input id="joinPasswordInput" type="password" placeholder="输入密码" onkeydown="if(event.key==='Enter')submitJoinPassword()">
+            </div>
+            <input type="hidden" id="joinRoomId" value="">
+            <div class="modal-actions">
+                <button class="btn btn-default" onclick="hideJoinPasswordModal()">取消</button>
+                <button class="btn btn-primary" onclick="submitJoinPassword()">加入</button>
+            </div>
+        </div>
+    </div>
+    <div class="modal-overlay" id="inviteModal">
+        <div class="modal-content" data-resizable="se" data-rz-min="150">
+            <h3>邀请用户</h3>
+            <div class="form-group">
+                <label>输入要邀请的用户名</label>
+                <input id="inviteUsername" placeholder="输入用户名" onkeydown="if(event.key==='Enter')submitInvite()">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-default" onclick="hideInviteModal()">取消</button>
+                <button class="btn btn-primary" onclick="submitInvite()">邀请</button>
+            </div>
+        </div>
+    </div>
+    <div class="modal-overlay" id="createRoomModal">
+    <div class="modal-content" data-resizable="se" data-rz-min="150">
+        <h3>创建房间</h3>
+        <div class="form-group">
+            <label>房间名称 *</label>
+            <input id="newRoomName" placeholder="输入房间名称" maxlength="50">
+        </div>
+        <div class="form-group">
+            <label>房间描述</label>
+            <input id="newRoomDesc" placeholder="房间描述（可选）">
+        </div>
+        <div class="form-group">
+            <label><input type="checkbox" id="newRoomPublic" checked> 公开房间</label>
+        </div>
+        <div class="form-group">
+            <label>访问密码（可选）</label>
+            <input id="newRoomPwd" type="password" placeholder="留空为无密码">
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-default" onclick="hideCreateRoom()">取消</button>
+            <button class="btn btn-primary" onclick="createRoom()">创建</button>
+        </div>
+    </div>
+</div>
+    <div class="modal-overlay" id="addFriendModal">
+    <div class="modal-content" data-resizable="se" data-rz-min="150">
+        <h3>添加好友</h3>
+        <div id="addFriendList" style="max-height:400px;overflow-y:auto;"></div>
+        <div class="modal-actions">
+            <button class="btn btn-default" onclick="hideAddFriendModal()">关闭</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="renameModal">
+    <div class="modal-content" data-resizable="se" data-rz-min="150">
+        <h3>重命名</h3>
+        <div class="form-group">
+            <label id="renameLabel">新名称</label>
+            <input id="renameInput" placeholder="输入新名称" onkeydown="if(event.key==='Enter')submitRename()">
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-default" onclick="hideRenameModal()">取消</button>
+            <button class="btn btn-primary" onclick="submitRename()">确定</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="forwardModal">
+    <div class="modal-content fw-compact" data-resizable="se" data-rz-min="150">
+        <h3>转发文件</h3>
+        <input id="forwardSearch" class="fw-search" placeholder="搜索用户名或房间名" autocomplete="off" oninput="filterForwardTargets()">
+        <div class="forward-target-list" id="forwardTargetList"></div>
+        <div class="forward-recent" id="forwardRecent"></div>
+        <div class="modal-actions">
+            <button class="btn btn-default" onclick="hideForwardModal()">取消</button>
+            <button class="btn btn-primary" id="forwardConfirmBtn" onclick="submitForward()">转发</button>
+        </div>
+    </div>
+</div>
+
+<script src="/static/resize.js?v=17"></script>
+<script src="/static/app.js?v=58"></script>
+<script src="/static/desktop.js?v=17"></script>
+<script src="/static/prefs-sync.js?v=1"></script>
+</body>
+</html>

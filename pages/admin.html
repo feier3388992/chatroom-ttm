@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>管理 - TTM</title>
+<link rel="stylesheet" href="/static/emoji-font.css?v=1">
+<link rel="stylesheet" href="/static/style.css?v=46">
+<style>
+body { background: #f0f2f5; }
+.container { max-width: 1100px; margin: 0 auto; padding: 16px; }
+.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.header h1 { font-size: 22px; margin: 0; }
+.card { background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.06); padding: 20px; margin-bottom: 16px; }
+.card h2 { font-size: 16px; margin-bottom: 12px; color: #333; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 8px 12px; text-align: left; border: 1px solid #e8e8e8; }
+th { background: #fafafa; font-weight: 600; color: #555; }
+tr:hover td { background: #f5f8ff; }
+.badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+.badge-unused { background: #f6ffed; color: #389e0d; }
+.badge-used { background: #fff2f0; color: #ff4d4f; }
+.badge-active { background: #f6ffed; color: #389e0d; }
+.badge-inactive { background: #fff2f0; color: #ff4d4f; }
+.gen-form { display: flex; gap: 10px; align-items: center; }
+.gen-form input { width: 80px; padding: 6px 12px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 14px; outline: none; }
+.gen-form input:focus { border-color: #4096ff; }
+.gen-result { margin-top: 10px; padding: 10px; background: #f6ffed; border-radius: 6px; font-size: 13px; display: none; }
+.gen-result.show { display: block; }
+.badge-online { background: #f6ffed; color: #389e0d; }
+.badge-offline { background: #f5f5f5; color: #999; }
+.badge-banned { background: #fff2f0; color: #ff4d4f; }
+.badge-normal { background: #f6ffed; color: #389e0d; }
+.action-btn { padding: 3px 10px; font-size: 12px; border-radius: 4px; border: none; cursor: pointer; margin: 0 2px; }
+.action-btn.kick { background: #fff7e6; color: #d46b08; }
+.action-btn.kick:hover { background: #ffd591; }
+.action-btn.ban { background: #fff2f0; color: #ff4d4f; }
+.action-btn.ban:hover { background: #ffccc7; }
+.action-btn.unban { background: #f6ffed; color: #389e0d; }
+.action-btn.unban:hover { background: #b7eb8f; }
+.action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.search-form { display: flex; gap: 8px; margin-bottom: 12px; }
+.search-form input { flex:1; padding:6px 12px; border:1px solid #d9d9d9; border-radius:6px; font-size:13px; outline:none; }
+.search-form input:focus { border-color:#4096ff; }
+.pagination { display:flex; align-items:center; gap:8px; margin-top:12px; font-size:13px; color:#666; }
+.pagination .page-btn { padding:4px 12px; font-size:12px; border-radius:4px; border:1px solid #d9d9d9; background:#fff; cursor:pointer; }
+.pagination .page-btn:hover { border-color:#4096ff; color:#4096ff; }
+.pagination .page-btn:disabled { opacity:0.4; cursor:not-allowed; }
+.pagination .page-info { font-size:13px; color:#666; }
+.batch-bar { display:flex; gap:8px; align-items:center; margin-bottom:10px; }
+.batch-bar .selected-info { font-size:13px; color:#666; }
+.file-summary { display:flex; gap:16px; margin-bottom:12px; }
+.file-summary-item { font-size:13px; color:#555; }
+.file-summary-item strong { color:#333; }
+td .msg-preview { max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:inline-block; vertical-align:middle; }
+.action-btn.rename { background: #e6f4ff; color: #1677ff; }
+.action-btn.rename:hover { background: #bae0ff; }
+.action-btn.move { background: #f6f5ff; color: #531dab; cursor: pointer; }
+.action-btn.move:hover { background: #d3adf7; }
+.action-btn.move:disabled { opacity: 0.3; cursor: not-allowed; }
+.action-btn.delete-room { background: #fff2f0; color: #ff4d4f; }
+.action-btn.delete-room:hover { background: #ffccc7; }
+</style>
+</head>
+<body>
+<div class="container" data-resizable="se" data-rz-min="60">
+    <div class="header">
+        <h1>TTM 管理</h1>
+        <div>
+            <span id="userDisplay" style="font-size:13px;color:#666;margin-right:12px;"></span>
+            <a href="/admin/files" class="btn btn-primary btn-sm" style="text-decoration:none;margin-right:8px;">代码编辑</a>
+            <a href="/" class="btn btn-default btn-sm" style="text-decoration:none;">返回聊天室</a>
+            <button class="btn btn-default btn-sm" onclick="doLogout()" style="display:none;" id="logoutBtn">退出</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>邀请码管理</h2>
+        <div class="gen-form">
+            <span>生成数量：</span>
+            <input id="genCount" type="number" value="10" min="1" max="100">
+            <button class="btn btn-primary" onclick="generateCodes()">生成</button>
+        </div>
+        <div id="genResult" class="gen-result"></div>
+    </div>
+
+    <div class="card">
+        <h2>邀请码列表</h2>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>ID</th><th>邀请码</th><th>使用状态</th><th>启用状态</th><th>使用者</th><th>创建时间</th></tr></thead>
+                <tbody id="codeTable"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>用户管理</h2>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>ID</th><th>用户名</th><th>昵称</th><th>状态</th><th>封禁</th><th>操作</th></tr></thead>
+                <tbody id="userTable"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>房间管理</h2>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th style="width:60px;">排序</th><th>ID</th><th>房间名称</th><th>创建者</th><th>成员数</th><th>类型</th><th>操作</th></tr></thead>
+                <tbody id="roomTable"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>消息数据库管理</h2>
+        <div class="search-form">
+            <input type="text" id="msgSearch" placeholder="搜索用户名/内容/文件名..." onkeydown="if(event.key==='Enter') searchMessages()">
+            <button class="btn btn-primary" onclick="searchMessages()">搜索</button>
+        </div>
+        <div class="batch-bar">
+            <label style="font-size:13px;"><input type="checkbox" id="selectAll" onchange="toggleAllMessages(this.checked)"> 全选</label>
+            <span class="selected-info" id="selectedInfo">已选 0 条</span>
+            <button class="btn btn-danger btn-sm" onclick="batchDeleteMessages()">批量删除</button>
+            <button class="btn btn-default btn-sm" onclick="clearRoomMessages()" style="margin-left:auto;">清空当前房间消息</button>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th style="width:36px;"></th><th>ID</th><th>房间</th><th>用户</th><th>内容</th><th>文件</th><th>类型</th><th>时间</th></tr></thead>
+                <tbody id="msgTable"></tbody>
+            </table>
+        </div>
+        <div class="pagination">
+            <button class="page-btn" id="prevPage" onclick="loadMessages(currentPage-1)">上一页</button>
+            <span class="page-info" id="pageInfo"></span>
+            <button class="page-btn" id="nextPage" onclick="loadMessages(currentPage+1)">下一页</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>文件管理</h2>
+        <div class="file-summary" id="fileSummary"></div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>文件名</th><th>大小</th><th>修改时间</th></tr></thead>
+                <tbody id="fileTable"></tbody>
+            </table>
+        </div>
+        <div style="margin-top:10px;">
+            <button class="btn btn-danger btn-sm" onclick="cleanupFiles()">清理孤立文件</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>系统设置</h2>
+        <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:14px;">
+                <input type="checkbox" id="autoFileEnabled" checked>
+                <span>启用自动转文件</span>
+            </label>
+            <label style="font-size:14px;">
+                字数阈值：
+                <input type="number" id="autoFileMaxChars" min="1" value="150" style="width:80px;padding:4px 8px;border:1px solid #d9d9d9;border-radius:6px;font-size:14px;">
+            </label>
+            <label style="font-size:14px;">
+                行数阈值：
+                <input type="number" id="autoFileMaxLines" min="1" value="10" style="width:80px;padding:4px 8px;border:1px solid #d9d9d9;border-radius:6px;font-size:14px;">
+            </label>
+            <label style="font-size:14px;">
+                上传文件大小限制：
+                <input type="number" id="uploadMaxSizeMb" min="1" max="102400" value="2048" style="width:90px;padding:4px 8px;border:1px solid #d9d9d9;border-radius:6px;font-size:14px;">
+                <span style="color:#999;font-size:12px;">MB</span>
+            </label>
+            <label style="font-size:14px;">
+                下载文件大小限制：
+                <input type="number" id="downloadMaxSizeMb" min="1" max="102400" value="2048" style="width:90px;padding:4px 8px;border:1px solid #d9d9d9;border-radius:6px;font-size:14px;">
+                <span style="color:#999;font-size:12px;">MB</span>
+            </label>
+            <button class="btn btn-primary btn-sm" onclick="saveAutoFileConfig()">保存配置</button>
+        </div>
+        <div id="autoFileConfigMsg" style="font-size:12px;color:#52c41a;margin-top:8px;display:none;"></div>
+    </div>
+
+    <div class="card">
+        <h2>系统更新</h2>
+        <div style="background:#f6f8fa;border-radius:8px;padding:16px;margin-bottom:16px;">
+            <div style="font-size:13px;font-weight:600;margin-bottom:8px;">上传更新包</div>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <input type="file" id="updateZipInput" accept=".zip" style="flex:1;padding:6px;border:1px solid #d9d9d9;border-radius:6px;font-size:13px;">
+                <button class="btn btn-primary btn-sm" onclick="uploadUpdateZip()">上传并解压</button>
+            </div>
+            <div style="font-size:12px;color:#999;margin-top:6px;">支持 .zip 格式，内含 app.js / style.css / chat.html 自动识别</div>
+        </div>
+        <div style="margin-bottom:12px;display:flex;gap:8px;">
+            <button class="btn btn-default btn-sm" onclick="checkUpdate()">检查更新</button>
+            <button class="btn btn-danger btn-sm" onclick="applyUpdate()" id="applyBtn" disabled>应用更新</button>
+            <button class="btn btn-default btn-sm" onclick="clearPending()">清空待更新</button>
+        </div>
+        <div class="update-log" id="updateLog"></div>
+    </div>
+</div>
+<style>
+.update-log { background:#1e1e1e; border-radius:6px; padding:12px; font-size:13px; font-family:Consolas,monospace; max-height:300px; overflow-y:auto; display:none; color:#d4d4d4; line-height:1.6; white-space:pre-wrap; }
+.update-log .info { color:#569cd6; }
+.update-log .success { color:#4ec9b0; }
+.update-log .warn { color:#ce9178; }
+.update-log .restart { color:#c586c0; }
+</style>
+
+<script src="/static/resize.js?v=15"></script>
+<script>
+let currentPage = 1;
+let selectedIds = new Set();
+
+const token = localStorage.getItem('token');
+const username = localStorage.getItem('username');
+if (!token) { location.href = '/login'; }
+document.getElementById('userDisplay').textContent = username || '';
+
+function clearAuthStorage() {
+    try { localStorage.removeItem('token'); } catch (_) {}
+    try { localStorage.removeItem('username'); } catch (_) {}
+    try { localStorage.removeItem('qt_unread_ids'); } catch (_) {}
+}
+
+(async function() {
+    const r = await fetch('/api/auth/me', {headers: {'X-Auth-Token': token}});
+    const d = await r.json();
+    if (d.code !== 200) {
+        clearAuthStorage();
+        location.href = '/login';
+        return;
+    }
+    if (!d.data.is_super) {
+        alert('仅管理员可访问');
+        location.href = '/';
+        return;
+    }
+    loadCodes();
+    loadUsers();
+    loadAdminRooms();
+    loadMessages(1);
+    loadFiles();
+    loadAutoFileConfig();
+    setInterval(loadUsers, 10000);
+})();
+
+async function apiFetch(url, opts = {}) {
+    opts.headers = opts.headers || {};
+    opts.headers['X-Auth-Token'] = token;
+    if (opts.body && typeof opts.body === 'object' && !(opts.body instanceof FormData)) {
+        opts.headers['Content-Type'] = 'application/json';
+        opts.body = JSON.stringify(opts.body);
+    }
+    const res = await fetch(url, opts);
+    if (res.status === 401) { clearAuthStorage(); location.href = '/login'; return null; }
+    return res.json();
+}
+
+async function doLogout() {
+    await apiFetch('/api/auth/logout', {method:'POST'});
+    clearAuthStorage();
+    location.href = '/login';
+}
+
+async function loadCodes() {
+    const data = await apiFetch('/api/admin/codes');
+    if (!data) return;
+    const el = document.getElementById('codeTable');
+    el.innerHTML = data.data.map(c => {
+        const usedCls = c.used ? 'badge-used' : 'badge-unused';
+        const usedTxt = c.used ? '已使用' : '未使用';
+        const actCls = c.active ? 'badge-active' : 'badge-inactive';
+        const actTxt = c.active ? '已启用' : '已禁用';
+        return `<tr>
+            <td>${c.id}</td>
+            <td style="font-family:monospace;font-weight:600;">${esc(c.code)}</td>
+            <td><span class="badge ${usedCls}">${usedTxt}</span></td>
+            <td><span class="badge ${actCls}">${actTxt}</span></td>
+            <td>${esc(c.used_by) || '-'}</td>
+            <td>${c.create_time || '-'}</td>
+        </tr>`;
+    }).join('');
+}
+
+async function generateCodes() {
+    const count = parseInt(document.getElementById('genCount').value) || 10;
+    if (count < 1 || count > 100) { alert('数量范围 1-100'); return; }
+    const data = await apiFetch('/api/admin/codes/generate', {method:'POST', body: {count}});
+    if (!data) return;
+    const el = document.getElementById('genResult');
+    el.className = 'gen-result show';
+    el.innerHTML = `<strong>已生成 ${data.data.length} 个邀请码：</strong><br>
+        <span style="font-family:monospace;font-size:12px;word-break:break-all;">${data.data.join('  ')}</span>`;
+    loadCodes();
+}
+
+async function loadUsers() {
+    const data = await apiFetch('/api/admin/users');
+    if (!data) return;
+    const el = document.getElementById('userTable');
+    el.innerHTML = data.data.map(u => {
+        const onlineCls = u.is_online ? 'badge-online' : 'badge-offline';
+        const onlineTxt = u.is_online ? '在线' : '离线';
+        const bannedCls = u.is_banned ? 'badge-banned' : 'badge-normal';
+        const bannedTxt = u.is_banned ? '已封禁' : '正常';
+        let actions = '';
+        if (u.username === 'admin') {
+            actions = '<span style="color:#999;font-size:12px;">超级管理员</span>';
+        } else {
+            actions = `
+                <button class="action-btn kick" onclick="doKick('${esc(u.username)}')">踢下线</button>
+                ${u.is_banned
+                    ? `<button class="action-btn unban" onclick="doUnban('${esc(u.username)}')">解封</button>`
+                    : `<button class="action-btn ban" onclick="doBan('${esc(u.username)}')">封禁</button>`
+                }
+            `;
+        }
+        return `<tr>
+            <td>${u.id}</td>
+            <td>${esc(u.username)}</td>
+            <td>${esc(u.nickname) || '-'}</td>
+            <td><span class="badge ${onlineCls}">${onlineTxt}</span></td>
+            <td><span class="badge ${bannedCls}">${bannedTxt}</span></td>
+            <td style="white-space:nowrap;">${actions}</td>
+        </tr>`;
+    }).join('');
+}
+
+async function doKick(username) {
+    if (!confirm(`确定踢下线 ${username}？`)) return;
+    const data = await apiFetch(`/api/admin/kick/${encodeURIComponent(username)}`, {method:'POST'});
+    if (data) { alert(data.msg); loadUsers(); }
+}
+
+async function doBan(username) {
+    const reason = prompt(`封禁原因（可选）${username}：`);
+    if (reason === null) return;
+    const data = await apiFetch(`/api/admin/ban/${encodeURIComponent(username)}`, {method:'POST', body: {reason: reason || ''}});
+    if (data) { alert(data.msg); loadUsers(); }
+}
+
+async function doUnban(username) {
+    if (!confirm(`确定解封 ${username}？`)) return;
+    const data = await apiFetch(`/api/admin/unban/${encodeURIComponent(username)}`, {method:'POST'});
+    if (data) { alert(data.msg); loadUsers(); }
+}
+
+let _adminRooms = [];
+
+async function loadAdminRooms() {
+    const data = await apiFetch('/api/admin/rooms');
+    if (!data) return;
+    _adminRooms = data.data;
+    renderAdminRooms();
+}
+
+function renderAdminRooms() {
+    const el = document.getElementById('roomTable');
+    el.innerHTML = _adminRooms.map((r, i) => {
+        const isLobby = r.id === 0;
+        const typeTxt = r.is_public ? '公开' : '私有';
+        const moveUpDisabled = i === 0 || isLobby ? 'disabled' : '';
+        const moveDownDisabled = i === _adminRooms.length - 1 || isLobby ? 'disabled' : '';
+        let actions = '';
+        if (isLobby) {
+            actions = '<span style="color:#999;font-size:12px;">默认大厅</span>';
+        } else {
+            actions = `<button class="action-btn rename" onclick="renameRoom(${r.id}, '${esc(r.name).replace(/'/g, "\\'")}')">重命名</button>
+                <button class="action-btn delete-room" onclick="deleteAdminRoom(${r.id}, '${esc(r.name).replace(/'/g, "\\'")}')">删除</button>`;
+        }
+        return `<tr>
+            <td style="white-space:nowrap;">
+                <button class="action-btn move" onclick="moveRoom(${i}, -1)" title="上移" ${moveUpDisabled}>▲</button>
+                <button class="action-btn move" onclick="moveRoom(${i}, 1)" title="下移" ${moveDownDisabled}>▼</button>
+            </td>
+            <td>${r.id}</td>
+            <td>${esc(r.name)}</td>
+            <td>${esc(r.created_by)}</td>
+            <td>${r.member_count}</td>
+            <td>${typeTxt}</td>
+            <td style="white-space:nowrap;">${actions}</td>
+        </tr>`;
+    }).join('');
+}
+
+async function moveRoom(index, direction) {
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= _adminRooms.length) return;
+    const lobbyIdx = _adminRooms.findIndex(r => r.id === 0);
+    if (index === lobbyIdx || newIndex === lobbyIdx) return;
+    const temp = _adminRooms[index];
+    _adminRooms[index] = _adminRooms[newIndex];
+    _adminRooms[newIndex] = temp;
+    const orders = _adminRooms.map((r, i) => ({id: r.id, sort_order: i}));
+    renderAdminRooms();
+    await apiFetch('/api/admin/rooms/reorder', {method: 'POST', body: {orders}});
+}
+
+async function renameRoom(roomId, oldName) {
+    const newName = prompt('输入新房间名称：', oldName);
+    if (newName === null || newName.trim() === '') return;
+    if (newName.trim() === oldName) return;
+    const data = await apiFetch(`/api/admin/rooms/${roomId}`, {method: 'PUT', body: {name: newName.trim()}});
+    if (data) { alert(data.msg); loadAdminRooms(); }
+}
+
+async function deleteAdminRoom(roomId, roomName) {
+    if (!confirm(`确定删除房间「${roomName}」？\n\n该房间的所有消息也会被删除！此操作不可恢复！`)) return;
+    const data = await apiFetch(`/api/admin/rooms/${roomId}`, {method: 'DELETE'});
+    if (data) { alert(data.msg); loadAdminRooms(); }
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s||''; return d.innerHTML; }
+
+async function loadMessages(page) {
+    currentPage = page;
+    const search = document.getElementById('msgSearch').value;
+    let url = `/api/admin/messages?page=${page}&per_page=50`;
+    if (search) url += `&search=${encodeURIComponent(search)}`;
+    const data = await apiFetch(url);
+    if (!data) return;
+    const el = document.getElementById('msgTable');
+    el.innerHTML = data.data.map(m => {
+        const checked = selectedIds.has(m.id) ? 'checked' : '';
+        const contentPreview = (m.msg_type === 'image' ? '[图片]' : m.msg_type === 'file' ? '[文件]' : esc(m.content));
+        const fileInfo = m.file_name ? esc(m.file_name) : '-';
+        return `<tr>
+            <td><input type="checkbox" class="msg-check" value="${m.id}" ${checked} onchange="toggleMsg(${m.id}, this.checked)"></td>
+            <td>${m.id}</td>
+            <td>${m.room_id}</td>
+            <td>${esc(m.username)}</td>
+            <td><span class="msg-preview">${contentPreview}</span></td>
+            <td>${fileInfo}</td>
+            <td>${m.msg_type}</td>
+            <td style="white-space:nowrap;font-size:12px;">${m.create_time}</td>
+        </tr>`;
+    }).join('');
+    const total = data.total;
+    const totalPages = Math.ceil(total / 50) || 1;
+    document.getElementById('pageInfo').textContent = `第 ${page}/${totalPages} 页（共 ${total} 条）`;
+    document.getElementById('prevPage').disabled = page <= 1;
+    document.getElementById('nextPage').disabled = page >= totalPages;
+    updateSelectedInfo();
+}
+
+function searchMessages() {
+    selectedIds.clear();
+    loadMessages(1);
+}
+
+function toggleMsg(id, checked) {
+    if (checked) selectedIds.add(id);
+    else selectedIds.delete(id);
+    updateSelectedInfo();
+    document.getElementById('selectAll').checked = false;
+}
+
+function toggleAllMessages(checked) {
+    document.querySelectorAll('.msg-check').forEach(cb => {
+        cb.checked = checked;
+        const id = parseInt(cb.value);
+        if (checked) selectedIds.add(id);
+        else selectedIds.delete(id);
+    });
+    updateSelectedInfo();
+}
+
+function updateSelectedInfo() {
+    document.getElementById('selectedInfo').textContent = `已选 ${selectedIds.size} 条`;
+}
+
+async function batchDeleteMessages() {
+    if (selectedIds.size === 0) { alert('请先选择消息'); return; }
+    if (!confirm(`确定删除 ${selectedIds.size} 条消息？（关联文件也会删除）`)) return;
+    const ids = Array.from(selectedIds);
+    const data = await apiFetch('/api/admin/messages/batch-delete', {method:'POST', body: {ids}});
+    if (data) { alert(data.msg); selectedIds.clear(); loadMessages(currentPage); }
+}
+
+async function clearRoomMessages() {
+    if (!confirm('确定清空当前房间所有消息？（可通过房间ID筛选）')) return;
+    const roomId = prompt('输入要清空的房间ID（留空清空全部）：');
+    let url = '/api/admin/messages';
+    if (roomId) url += `?room_id=${parseInt(roomId)||0}`;
+    const data = await apiFetch(url, {method:'DELETE'});
+    if (data) { alert(data.msg); loadMessages(currentPage); }
+}
+
+async function loadFiles() {
+    const data = await apiFetch('/api/admin/files');
+    if (!data) return;
+    document.getElementById('fileSummary').innerHTML = `
+        <span class="file-summary-item">文件总数: <strong>${data.total}</strong></span>
+        <span class="file-summary-item">使用中: <strong>${data.used}</strong></span>
+        <span class="file-summary-item">孤立文件: <strong>${data.orphans.length}</strong></span>
+    `;
+    const el = document.getElementById('fileTable');
+    if (data.orphans.length === 0) {
+        el.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#999;">没有孤立文件</td></tr>';
+        return;
+    }
+    el.innerHTML = data.orphans.map(f => {
+        const size = f.size > 1024*1024 ? (f.size/1024/1024).toFixed(1)+' MB' : f.size > 1024 ? (f.size/1024).toFixed(1)+' KB' : f.size+' B';
+        const time = new Date(f.mtime*1000).toLocaleString();
+        return `<tr><td>${esc(f.name)}</td><td>${size}</td><td style="font-size:12px;">${time}</td></tr>`;
+    }).join('');
+}
+
+async function cleanupFiles() {
+    if (!confirm('确定删除所有孤立文件？（未被任何消息引用的文件）')) return;
+    const data = await apiFetch('/api/admin/files/cleanup', {method:'POST'});
+    if (data) { alert(data.msg); loadFiles(); }
+}
+
+async function loadAutoFileConfig() {
+    const data = await apiFetch('/api/admin/config');
+    if (!data || !data.data) return;
+    const cfg = data.data;
+    document.getElementById('autoFileEnabled').checked = cfg.auto_file_enabled === '1';
+    document.getElementById('autoFileMaxChars').value = cfg.auto_file_max_chars || '150';
+    document.getElementById('autoFileMaxLines').value = cfg.auto_file_max_lines || '10';
+    document.getElementById('uploadMaxSizeMb').value = cfg.upload_max_size_mb || '2048';
+    document.getElementById('downloadMaxSizeMb').value = cfg.download_max_size_mb || '2048';
+}
+
+async function saveAutoFileConfig() {
+    const body = {
+        auto_file_enabled: document.getElementById('autoFileEnabled').checked ? '1' : '0',
+        auto_file_max_chars: document.getElementById('autoFileMaxChars').value || '150',
+        auto_file_max_lines: document.getElementById('autoFileMaxLines').value || '10',
+        upload_max_size_mb: document.getElementById('uploadMaxSizeMb').value || '2048',
+        download_max_size_mb: document.getElementById('downloadMaxSizeMb').value || '2048',
+    };
+    const data = await apiFetch('/api/admin/config', {method:'POST', body});
+    if (data) {
+        const msg = document.getElementById('autoFileConfigMsg');
+        msg.textContent = data.msg;
+        msg.style.color = data.code === 200 ? '#52c41a' : '#ff4d4f';
+        msg.style.display = 'block';
+        setTimeout(() => { msg.style.display = 'none'; }, 2000);
+    }
+}
+
+async function uploadUpdateZip() {
+    const input = document.getElementById('updateZipInput');
+    const file = input.files[0];
+    if (!file) { alert('请选择 .zip 文件'); return; }
+    if (!file.name.endsWith('.zip')) { alert('仅支持 .zip 格式'); return; }
+    const log = document.getElementById('updateLog');
+    log.style.display = 'block';
+    log.innerHTML = '<span class="info">[信息] 正在上传更新包...</span>\n';
+    const fd = new FormData();
+    fd.append('zip_file', file);
+    const data = await apiFetch('/api/admin/update-upload', {method:'POST', body: fd});
+    if (!data) return;
+    if (data.extracted && data.extracted.length > 0) {
+        log.innerHTML += `<span class="success">[成功] 已解压: ${data.extracted.join(', ')}</span>\n`;
+    }
+    if (data.errors && data.errors.length > 0) {
+        log.innerHTML += `<span class="warn">[跳过] ${data.errors.join('; ')}</span>\n`;
+    }
+    log.innerHTML += '<span class="info">[信息] 请点击"检查更新"查看待更新文件</span>\n';
+    log.scrollTop = log.scrollHeight;
+    input.value = '';
+}
+
+async function clearPending() {
+    if (!confirm('确认清空 update_pending 目录？')) return;
+    const data = await apiFetch('/api/admin/update-clear', {method:'POST'});
+    if (!data) return;
+    const log = document.getElementById('updateLog');
+    log.style.display = 'block';
+    log.innerHTML = `<span class="success">[成功] ${data.msg}</span>\n`;
+    document.getElementById('applyBtn').disabled = true;
+}
+
+async function checkUpdate() {
+    const log = document.getElementById('updateLog');
+    log.style.display = 'block';
+    log.innerHTML = '<span class="info">[信息] 正在检查更新目录...</span>\n';
+    document.getElementById('applyBtn').disabled = true;
+    const data = await apiFetch('/api/admin/update-check', {method:'POST'});
+    if (!data) return;
+    if (data.data && data.data.length > 0) {
+        log.innerHTML += `<span class="success">[成功] 找到 ${data.data.length} 个待更新文件:</span>\n`;
+        data.data.forEach(f => {
+            const size = f.size > 1024 ? (f.size/1024).toFixed(1) + ' KB' : f.size + ' B';
+            log.innerHTML += `  <span class="info">${f.name}</span> (${size})\n`;
+        });
+        document.getElementById('applyBtn').disabled = false;
+    } else {
+        log.innerHTML += `<span class="warn">[提示] ${data.msg || '没有找到待更新文件'}</span>\n`;
+    }
+    log.scrollTop = log.scrollHeight;
+}
+
+async function applyUpdate() {
+    const log = document.getElementById('updateLog');
+    log.innerHTML += '<span class="info">[信息] 正在应用更新...</span>\n';
+    document.getElementById('applyBtn').disabled = true;
+    const data = await apiFetch('/api/admin/update-apply', {method:'POST'});
+    if (!data) return;
+    if (data.updated && data.updated.length > 0) {
+        log.innerHTML += `<span class="success">[成功] 已更新: ${data.updated.join(', ')}</span>\n`;
+    }
+    if (data.errors && data.errors.length > 0) {
+        log.innerHTML += `<span class="warn">[错误] ${data.errors.join('; ')}</span>\n`;
+    }
+    if (data.msg) {
+        log.innerHTML += `<span class="info">[信息] ${data.msg}</span>\n`;
+    }
+    log.innerHTML += '<span class="restart">[重启] 服务器正在重启 (约 2 秒)...</span>\n';
+    log.innerHTML += '<span class="restart">[重启] 请稍后刷新页面</span>\n';
+    log.scrollTop = log.scrollHeight;
+}
+</script>
+</body>
+</html>

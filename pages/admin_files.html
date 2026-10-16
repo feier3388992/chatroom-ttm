@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>代码编辑 - TTM</title>
+<link rel="stylesheet" href="/static/emoji-font.css?v=1">
+<link rel="stylesheet" href="/static/style.css?v=46">
+<style>
+body { background: #f0f2f5; }
+.container { max-width: 1100px; margin: 0 auto; padding: 16px; }
+.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.header h1 { font-size: 22px; margin: 0; }
+.file-manager { display: flex; gap: 16px; background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.06); overflow: hidden; }
+.file-tree { width: 240px; min-height: 600px; border-right: 1px solid #e8e8e8; padding: 12px; overflow-y: auto; background: #fafafa; }
+.file-tree h3 { font-size: 14px; margin-bottom: 12px; color: #666; }
+.file-item { padding: 6px 8px; cursor: pointer; border-radius: 4px; font-size: 13px; color: #333; display: flex; align-items: center; gap: 6px; }
+.file-item:hover { background: #e6f7ff; }
+.file-item.active { background: #1677ff; color: #fff; }
+.file-item.folder { font-weight: 600; }
+.file-children { margin-left: 16px; display: none; }
+.file-children.open { display: block; }
+.editor-area { flex: 1; display: flex; flex-direction: column; }
+.editor-header { padding: 12px 16px; border-bottom: 1px solid #e8e8e8; display: flex; justify-content: space-between; align-items: center; }
+.editor-header .file-name { font-size: 14px; font-weight: 600; }
+.editor-header .save-status { font-size: 12px; color: #52c41a; }
+.editor-header .save-status.error { color: #ff4d4f; }
+#codeEditor { flex: 1; width: 100%; min-height: 500px; font-family: Consolas, 'Courier New', monospace; font-size: 13px; line-height: 1.6; padding: 16px; border: none; outline: none; resize: none; tab-size: 4; background: #1e1e1e; color: #d4d4d4; }
+.editor-actions { padding: 12px 16px; border-top: 1px solid #e8e8e8; display: flex; gap: 10px; justify-content: flex-end; }
+</style>
+</head>
+<body>
+<div class="container" data-resizable="se" data-rz-min="60">
+    <div class="header">
+        <h1>代码编辑</h1>
+        <div>
+            <span id="userDisplay" style="font-size:13px;color:#666;margin-right:12px;"></span>
+            <a href="/admin" class="btn btn-default btn-sm" style="text-decoration:none;">返回管理</a>
+            <button class="btn btn-default btn-sm" onclick="doLogout()" style="display:none;" id="logoutBtn">退出</button>
+        </div>
+    </div>
+
+    <div class="file-manager" data-resizable="se" data-rz-min="60">
+        <div class="file-tree">
+            <h3>文件列表</h3>
+            <div id="fileList"></div>
+        </div>
+        <div class="editor-area">
+            <div class="editor-header">
+                <span class="file-name" id="currentFile">请选择文件</span>
+                <span class="save-status" id="saveStatus"></span>
+            </div>
+            <textarea id="codeEditor" placeholder="请选择左侧文件进行编辑..."></textarea>
+            <div class="editor-actions">
+                <button class="btn btn-primary" onclick="saveFile()">保存</button>
+                <button class="btn btn-danger" onclick="restartServer()">重启服务器</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/resize.js?v=15"></script>
+<script>
+let authToken = localStorage.getItem('token');
+let authUsername = localStorage.getItem('username');
+let currentFilePath = '';
+let originalContent = '';
+
+if (!authToken) { window.location.href = '/login'; }
+document.getElementById('userDisplay').textContent = authUsername || '';
+document.getElementById('logoutBtn').style.display = '';
+
+(async function() {
+    const r = await fetch('/api/auth/me', {headers: {'X-Auth-Token': authToken}});
+    const d = await r.json();
+    if (d.code !== 200 || !d.data.is_super) {
+        alert('仅管理员可访问');
+        window.location.href = '/';
+        return;
+    }
+    loadFiles();
+})();
+
+async function apiFetch(url, opts = {}) {
+    opts.headers = opts.headers || {};
+    opts.headers['X-Auth-Token'] = authToken;
+    if (opts.body && typeof opts.body === 'object' && !(opts.body instanceof FormData)) {
+        opts.headers['Content-Type'] = 'application/json';
+        opts.body = JSON.stringify(opts.body);
+    }
+    const res = await fetch(url, opts);
+    if (res.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('username');
+        window.location.href = '/login';
+        return null;
+    }
+    return res.json();
+}
+
+async function doLogout() {
+    await apiFetch('/api/auth/logout', {method:'POST'});
+    localStorage.removeItem('token');
+    localStorage.removeItem('username');
+    window.location.href = '/login';
+}
+
+async function loadFiles() {
+    const data = await apiFetch('/api/admin/code-files');
+    if (!data || data.code !== 200) return;
+    const el = document.getElementById('fileList');
+    el.innerHTML = '';
+    data.data.forEach(item => {
+        if (item.type === 'dir') {
+            const dir = document.createElement('div');
+            const header = document.createElement('div');
+            header.className = 'file-item folder';
+            header.innerHTML = item.name;
+            header.onclick = function() {
+                const children = dir.querySelector('.file-children');
+                children.classList.toggle('open');
+            };
+            dir.appendChild(header);
+            const children = document.createElement('div');
+            children.className = 'file-children';
+            item.children.forEach(child => {
+                const childEl = document.createElement('div');
+                childEl.className = 'file-item';
+                childEl.innerHTML = child.name;
+                childEl.onclick = function(e) {
+                    e.stopPropagation();
+                    loadFile(child.path, childEl);
+                };
+                children.appendChild(childEl);
+            });
+            dir.appendChild(children);
+            el.appendChild(dir);
+        } else {
+            const fileEl = document.createElement('div');
+            fileEl.className = 'file-item';
+            fileEl.innerHTML = item.name;
+            fileEl.onclick = function() {
+                loadFile(item.path, fileEl);
+            };
+            el.appendChild(fileEl);
+        }
+    });
+}
+
+async function loadFile(path, el) {
+    document.querySelectorAll('.file-item').forEach(f => f.classList.remove('active'));
+    if (el) el.classList.add('active');
+    const data = await apiFetch('/api/admin/code-file?path=' + encodeURIComponent(path));
+    if (data && data.code === 200) {
+        currentFilePath = path;
+        originalContent = data.data.content;
+        document.getElementById('codeEditor').value = data.data.content;
+        document.getElementById('currentFile').textContent = path;
+        document.getElementById('saveStatus').textContent = '';
+    } else {
+        document.getElementById('saveStatus').className = 'save-status error';
+        document.getElementById('saveStatus').textContent = data ? data.msg : '加载失败';
+    }
+}
+
+async function saveFile() {
+    if (!currentFilePath) { alert('请先选择文件'); return; }
+    const content = document.getElementById('codeEditor').value;
+    const status = document.getElementById('saveStatus');
+    status.className = 'save-status';
+    status.textContent = '保存中...';
+    const data = await apiFetch('/api/admin/code-file', {
+        method: 'POST',
+        body: { path: currentFilePath, content }
+    });
+    if (data && data.code === 200) {
+        status.className = 'save-status';
+        status.textContent = '已保存';
+        originalContent = content;
+    } else {
+        status.className = 'save-status error';
+        status.textContent = (data ? data.msg : '保存失败');
+    }
+}
+
+async function restartServer() {
+    if (!confirm('确定重启服务器？当前页面将刷新。')) return;
+    try {
+        await apiFetch('/api/admin/restart', { method: 'POST' });
+        alert('服务器正在重启，请稍后刷新页面');
+    } catch (e) {
+        alert('重启请求已发送');
+    }
+}
+
+document.getElementById('codeEditor').addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 's') {
+        e.preventDefault();
+        saveFile();
+    }
+});
+</script>
+</body>
+</html>

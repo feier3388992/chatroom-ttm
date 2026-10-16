@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+database/*.db
+invite_codes.txt
+*.log
+uploads/*
+!uploads/.gitkeep
+wallpapers/*
+!wallpapers/.gitkeep
+transcodes/*
+!transcodes/.gitkeep
